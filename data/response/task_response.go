@@ -7,4 +7,6 @@ type TaskResponse struct {
 	Title       string    `json:"title"`
 	Description string    `json:"description"`
 	DueDate     time.Time `json:"due_date"`
+	Overdue     bool      `json:"overdue"`
+	Completed   bool      `json:"completed"`
 }

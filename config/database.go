@@ -2,23 +2,31 @@ package config
 
 import (
 	"database/sql"
-)
+	"log/slog"
 
-const (
-	host     = "localhost"
-	port     = 5432
-	user     = "postgres"
-	password = "postgres"
-	dbName   = "test"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 func DatabaseConnection() *sql.DB {
-	db, err := sql.Open("sqlite3_extended", "./taks.db")
+	db, err := sql.Open("sqlite3", "store.db")
 	if err != nil {
 		panic(err)
 	}
 
+	schemaSQL := `CREATE TABLE IF NOT EXISTS Tasks (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		title VARCHAR(25),
+	    description VARCHAR(255),
+		duedate TIMESTAMP,
+		overdue BOOLEAN,
+		completed BOOLEAN
+	);`
+
+	_, err = db.Exec(schemaSQL)
+	if err != nil {
+		panic(err)
+	}
+
+	slog.Info("Conncted with sqllite")
 	return db
 }
-
-//docker run --name habr-pg-13.3 -p 5432:5432 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=test -d postgres:13.3

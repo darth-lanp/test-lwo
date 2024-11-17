@@ -1,10 +1,8 @@
 package request
 
-import "time"
-
 type UpdateTaskRequest struct {
-	Id          int       `validate:"required"`
-	Title       string    `validate:"required max=200,min=1" json:"title"`
-	Description string    `validate:"required max=200,min=1" json:"description"`
-	DueDate     time.Time `validate:"required max=200,min=1" json:"due_date"`
+	Id          int    `json:"id"`
+	Title       string `validate:"required,min=1,max=25" json:"title"`
+	Description string `validate:"required,min=1,max=200" json:"description"`
+	DueDate     string `validate:"required" json:"due_date"`
 }

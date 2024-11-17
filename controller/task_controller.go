@@ -1,13 +1,15 @@
 package controller
 
 import (
+	"encoding/json"
+	"errors"
+	"log/slog"
 	"net/http"
+	"regexp"
 	"rest/data/request"
-	"rest/data/response"
+	"rest/repository"
 	"rest/service"
 	"strconv"
-
-	"github.com/gin-gonic/gin"
 )
 
 type TaskController struct {
@@ -22,100 +24,135 @@ func NewTagController(tagService service.TaskService) *TaskController {
 
 func (controller *TaskController) Create(w http.ResponseWriter, r *http.Request) {
 	createTagRequest := request.CreateTaskRequest{}
-	err := ctx.ShouldBindJSON(&createTagRequest)
+	err := json.NewDecoder(r.Body).Decode(&createTagRequest)
+	if err != nil {
+		slog.Error("Error decode body", slog.String("err", err.Error()))
+		http.Error(w, "Error create task", http.StatusInternalServerError)
+		return
+	}
+
+	newTask, err := controller.tagService.Create(createTagRequest)
+	if err != nil {
+		slog.Error("Error create task", slog.String("err", err.Error()), slog.Any("body", createTagRequest))
+		http.Error(w, "Error create task", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(newTask)
 	if err != nil {
 		panic(err)
 	}
-	newTask := controller.tagService.Create(createTagRequest)
-
-	webResponse := response.Response{
-		Code:   200,
-		Status: "Ok",
-		Data:   newTask,
-	}
-
-	ctx.JSON(http.StatusOK, webResponse)
+	slog.Info("Succsesfully create task", slog.Any("body", newTask))
 }
 
-func (controller *TaskController) Update(ctx *gin.Context) {
+func (controller *TaskController) Update(w http.ResponseWriter, r *http.Request) {
 	updateTagRequest := request.UpdateTaskRequest{}
-	err := ctx.ShouldBindJSON(&updateTagRequest)
+
+	taskId := r.URL.Path[len("/tasks/"):]
+	id, err := strconv.Atoi(taskId)
 	if err != nil {
-		panic(err)
+		slog.Error("Invalid task ID", slog.Int("id", id), slog.String("err", err.Error()))
+		http.Error(w, "Invalid task ID", http.StatusBadRequest)
+		return
 	}
 
-	tagId := ctx.Param("taskId")
-	id, err := strconv.Atoi(tagId)
-
+	err = json.NewDecoder(r.Body).Decode(&updateTagRequest)
 	if err != nil {
-		panic(err)
+		http.Error(w, "Error decode body", http.StatusBadRequest)
+		return
 	}
 
 	updateTagRequest.Id = id
-	updateTask := controller.tagService.Update(updateTagRequest)
-
-	webResponse := response.Response{
-		Code:   200,
-		Status: "Ok",
-		Data:   updateTask,
+	updateTask, err := controller.tagService.Update(updateTagRequest)
+	if errors.Is(err, repository.NotFoundError) {
+		slog.Error("Not found task", slog.Int("id", id), slog.String("err", err.Error()))
+		http.Error(w, "Not found task", http.StatusNotFound)
+		return
 	}
 
-	ctx.JSON(http.StatusOK, webResponse)
-}
+	if err != nil {
+		slog.Error("Error update task", slog.Int("id", id), slog.String("err", err.Error()))
+		http.Error(w, "Error update task", http.StatusInternalServerError)
+		return
+	}
 
-func (controller *TaskController) Delete(ctx *gin.Context) {
-	tagId := ctx.Param("taskId")
-	id, err := strconv.Atoi(tagId)
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(updateTask)
 	if err != nil {
 		panic(err)
 	}
-
-	var webResponse response.Response
-	err = controller.tagService.Delete(id)
-	if err != nil {
-		webResponse = response.Response{
-			Code:   404,
-			Status: "Not Found",
-			Data:   nil,
-		}
-		ctx.JSON(http.StatusNotFound, webResponse)
-	} else {
-		webResponse = response.Response{
-			Code:   200,
-			Status: "Ok",
-			Data:   nil,
-		}
-		ctx.JSON(http.StatusOK, webResponse)
-	}
+	slog.Info("Succsesfully update task", slog.Any("body", updateTask))
 }
 
-func (controller *TaskController) FindById(ctx *gin.Context) {
-	taskId := ctx.Param("taskId")
+func (controller *TaskController) CompletedTask(w http.ResponseWriter, r *http.Request) {
+	re1 := regexp.MustCompile(`^/tasks/(\d+)/complete$`)
+	mathes := re1.FindStringSubmatch(r.URL.Path)
+
+	taskId := mathes[1]
 	id, err := strconv.Atoi(taskId)
+	if err != nil {
+		slog.Error("Invalid task ID", slog.Int("id", id), slog.String("err", err.Error()))
+		http.Error(w, "Invalid task ID", http.StatusBadRequest)
+		return
+	}
 
+	completedTask, err := controller.tagService.CompletedTask(id)
+	if errors.Is(err, repository.NotFoundError) {
+		slog.Error("Not found task", slog.Int("id", id), slog.String("err", err.Error()))
+		http.Error(w, "Not found task", http.StatusNotFound)
+		return
+	}
+
+	if err != nil {
+		slog.Error("Error completed task", slog.Int("id", id), slog.String("err", err.Error()))
+		http.Error(w, "Error completed task", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(completedTask)
 	if err != nil {
 		panic(err)
 	}
-
-	tasksResponse := controller.tagService.FindById(id)
-
-	webResponse := response.Response{
-		Code:   200,
-		Status: "Ok",
-		Data:   tasksResponse,
-	}
-	ctx.Header("Content-Type", "application/json")
-	ctx.JSON(http.StatusOK, webResponse)
+	slog.Info("Succsesfully completed task")
 }
 
-func (controller *TaskController) FindAll(ctx *gin.Context) {
-	tasksResponse := controller.tagService.FindAll()
-
-	webResponse := response.Response{
-		Code:   200,
-		Status: "Ok",
-		Data:   tasksResponse,
+func (controller *TaskController) Delete(w http.ResponseWriter, r *http.Request) {
+	taskId := r.URL.Path[len("/tasks/"):]
+	id, err := strconv.Atoi(taskId)
+	if err != nil {
+		slog.Error("Invalid task ID", slog.Int("id", id), slog.String("err", err.Error()))
+		http.Error(w, "Invalid task ID", http.StatusBadRequest)
+		return
 	}
-	ctx.Header("Content-Type", "application/json")
-	ctx.JSON(http.StatusOK, webResponse)
+
+	err = controller.tagService.Delete(id)
+	if errors.Is(err, repository.NotFoundError) {
+		slog.Error("Not found task", slog.Int("id", id), slog.String("err", err.Error()))
+		http.Error(w, "Not found task", http.StatusNotFound)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	slog.Info("Succsesfully deleted task", slog.Int("id", id))
+}
+
+func (controller *TaskController) FindAll(w http.ResponseWriter, r *http.Request) {
+	tasksResponse, err := controller.tagService.FindAll()
+	if err != nil {
+		slog.Error("Error get all tasks", slog.String("err", err.Error()))
+		http.Error(w, "Error get all tasks", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(tasksResponse)
+	if err != nil {
+		panic(err)
+	}
+	slog.Info("Succsesfully get tasks")
 }

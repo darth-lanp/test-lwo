@@ -2,29 +2,28 @@ package router
 
 import (
 	"net/http"
+	"regexp"
 	"rest/controller"
-
-	"github.com/gin-gonic/gin"
 )
 
-func NewRouter(taskController *controller.TaskController) {
-	service := gin.Default()
+func NewRouter(taskController *controller.TaskController) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
 
-	service.GET("", func(context *gin.Context) {
-		context.JSON(http.StatusOK, "welcome home")
-	})
+		re := regexp.MustCompile(`^/tasks/(\d+)$`)
+		re1 := regexp.MustCompile(`^/tasks/(\d+)/complete$`)
 
-	service.NoRoute(func(c *gin.Context) {
-		c.JSON(404, gin.H{"code": "PAGE_NOT_FOUND", "message": "Page not found"})
-	})
-
-	router := service.Group("/api")
-	tagRouter := router.Group("/tag")
-	tagRouter.GET("", taskController.FindAll)
-	tagRouter.GET("/:tagId", taskController.FindById)
-	tagRouter.POST("", taskController.Create)
-	tagRouter.PATCH("/:tagId", taskController.Update)
-	tagRouter.DELETE("/:tagId", taskController.Delete)
-
-	return service
+		if r.RequestURI == "/tasks" && r.Method == http.MethodGet {
+			taskController.FindAll(w, r)
+		} else if r.RequestURI == "/tasks" && r.Method == http.MethodPost {
+			taskController.Create(w, r)
+		} else if re.MatchString(r.RequestURI) && r.Method == http.MethodDelete {
+			taskController.Delete(w, r)
+		} else if re.MatchString(r.RequestURI) && r.Method == http.MethodPut {
+			taskController.Update(w, r)
+		} else if re1.MatchString(r.RequestURI) && r.Method == http.MethodPatch {
+			taskController.CompletedTask(w, r)
+		} else {
+			w.WriteHeader(404)
+		}
+	}
 }
