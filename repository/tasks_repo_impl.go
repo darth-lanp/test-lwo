@@ -14,7 +14,7 @@ type TaskRepositoryImpl struct {
 	Db *sql.DB
 }
 
-func NewTagsRepositoryImpl(Db *sql.DB) TaskRepository {
+func NewTaskRepositoryImpl(Db *sql.DB) TaskRepository {
 	return &TaskRepositoryImpl{Db: Db}
 }
 
@@ -41,6 +41,8 @@ func (t TaskRepositoryImpl) Save(task model.Task) (model.Task, error) {
 		Title:       task.Title,
 		Description: task.Description,
 		DueDate:     task.DueDate,
+		Overdue:     task.Overdue,
+		Completed:   task.Completed,
 	}, nil
 }
 

@@ -26,13 +26,13 @@ func main() {
 
 	validate := validator.New()
 
-	tagRepository := repository.NewTagsRepositoryImpl(db)
+	taskRepository := repository.NewTaskRepositoryImpl(db)
 
-	tagService := service.NewTagsServiceImpl(tagRepository, validate)
+	taskService := service.NewTaskServiceImpl(taskRepository, validate)
 
-	tagController := controller.NewTagController(tagService)
+	taskController := controller.NewTaskController(taskService)
 
-	router := router.NewRouter(tagController)
+	router := router.NewRouter(taskController)
 
 	signalChan := make(chan os.Signal, 1)
 	stopChan := make(chan struct{}, 1)
@@ -48,10 +48,10 @@ func main() {
 				stopChan <- struct{}{}
 				return
 			case <-ticker.C:
-				tasks, _ := tagRepository.FindAll()
+				tasks, _ := taskRepository.FindAll()
 				for _, task := range tasks {
 					if task.DueDate.Before(time.Now()) && !task.Overdue {
-						tagRepository.OverdueTask(task.Id)
+						taskRepository.OverdueTask(task.Id)
 						slog.Info("Overdue task with", slog.Int("id", task.Id))
 					}
 				}

@@ -16,7 +16,7 @@ type TaskServiceImpl struct {
 	Validate      *validator.Validate
 }
 
-func NewTagsServiceImpl(tagRepository repository.TaskRepository, validate *validator.Validate) TaskService {
+func NewTaskServiceImpl(tagRepository repository.TaskRepository, validate *validator.Validate) TaskService {
 	return &TaskServiceImpl{
 		TagRepository: tagRepository,
 		Validate:      validate,
